@@ -45,10 +45,8 @@ Claude Desktop 構成ファイル (`claude_desktop_config.json`) に以下を追
 {
   "mcpServers": {
     "mcp-create": {
-      "command": "node",
-      "args": [
-        "/path/to/mcp-create/build/index.js"
-      ]
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "mcp-create"]
     }
   }
 }
@@ -70,15 +68,6 @@ Claude Desktop 構成ファイル (`claude_desktop_config.json`) に以下を追
 
 ### 新規サーバー作成
 
-```json
-{
-  "name": "create-server",
-  "arguments": {
-    "code": "import { Server } from \"@modelcontextprotocol/sdk/server\";\n...",
-    "language": "typescript"
-  }
-}
-```
 
 ### ツール実行
 
