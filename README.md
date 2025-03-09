@@ -1,45 +1,49 @@
 # MCP Create Server
 
-動的MCPサーバー管理サービスは、Model Context Protocol (MCP) サーバーを動的に作成、実行、管理するためのツールです。このサービス自体がMCPサーバーとして機能し、他のMCPサーバーを子プロセスとして起動・管理することで、フレキシブルなMCPエコシステムを実現します。
+A dynamic MCP server management service that creates, runs, and manages Model Context Protocol (MCP) servers dynamically. This service itself functions as an MCP server and launches/manages other MCP servers as child processes, enabling a flexible MCP ecosystem.
 
-## 主要機能
+## Key Features
 
-- MCPサーバーコードの動的な作成と実行
-- 複数のプログラミング言語（TypeScript、JavaScript、Python）のサポート
-- 子MCPサーバーのツール実行
-- サーバーコードの更新と再起動
-- 不要なサーバーの削除
+- Dynamic creation and execution of MCP server code
+- Support for TypeScript only (JavaScript and Python support planned for future releases)
+- Tool execution on child MCP servers
+- Server code updates and restarts
+- Removal of unnecessary servers
 
-## インストール方法
+## Installation
+
+**Note: Docker is the recommended way to run this service**
+
+### Docker Installation (Recommended)
 
 ```bash
-# リポジトリをクローン
-git clone https://example.com/mcp-create.git
+# Build Docker image
+docker build -t mcp-create .
+
+# Run Docker container
+docker run -it --rm mcp-create
+```
+
+### Manual Installation (TypeScript Only)
+
+```bash
+# Clone repository
+git clone https://github.com/tesla0225/mcp-create.git
 cd mcp-create
 
-# 依存関係インストール
+# Install dependencies
 npm install
 
-# ビルド
+# Build
 npm run build
 
-# 実行
+# Run
 npm start
 ```
 
-## Docker での実行
+## Integration with Claude Desktop
 
-```bash
-# Docker イメージのビルド
-docker build -t mcp-create .
-
-# Docker コンテナの実行
-docker run -it mcp-create
-```
-
-## Claude Desktop との連携
-
-Claude Desktop 構成ファイル (`claude_desktop_config.json`) に以下を追加:
+Add the following to your Claude Desktop configuration file (`claude_desktop_config.json`):
 
 ```json
 {
@@ -52,24 +56,30 @@ Claude Desktop 構成ファイル (`claude_desktop_config.json`) に以下を追
 }
 ```
 
-## 提供ツール一覧
+## Available Tools
 
-| ツール名 | 説明 | 入力パラメータ | 出力 |
-|---------|-----|--------------|-----|
+| Tool Name | Description | Input Parameters | Output |
+|-----------|-------------|-----------------|--------|
+| create-server-from-template | Create MCP server from template | language: string | { serverId: string, message: string } |
+| execute-tool | Execute tool on server | serverId: string<br>toolName: string<br>args: object | Tool execution result |
+| get-server-tools | Get list of server tools | serverId: string | { tools: ToolDefinition[] } |
+| delete-server | Delete server | serverId: string | { success: boolean, message: string } |
+| list-servers | Get list of running servers | none | { servers: string[] } |
 
-| create-server-from-template | テンプレートからMCPサーバーを作成 | language: string | { serverId: string, message: string } |
-| execute-tool | サーバー上のツールを実行 | serverId: string<br>toolName: string<br>args: object | ツールの実行結果 |
-| get-server-tools | サーバーのツール一覧を取得 | serverId: string | { tools: ToolDefinition[] } |
+## Usage Examples
 
-| delete-server | サーバーを削除 | serverId: string | { success: boolean, message: string } |
-| list-servers | 実行中のサーバー一覧を取得 | なし | { servers: string[] } |
+### Creating a New Server
 
-## 使用例
+```json
+{
+  "name": "create-server-from-template",
+  "arguments": {
+    "language": "typescript"
+  }
+}
+```
 
-### 新規サーバー作成
-
-
-### ツール実行
+### Executing a Tool
 
 ```json
 {
@@ -84,23 +94,23 @@ Claude Desktop 構成ファイル (`claude_desktop_config.json`) に以下を追
 }
 ```
 
-## 技術仕様
+## Technical Specifications
 
-- Node.js 18以上
-- TypeScript
-- 依存パッケージ:
-  - @modelcontextprotocol/sdk: MCPクライアント・サーバー実装
-  - child_process (Node.js組込み): 子プロセス管理
-  - fs/promises (Node.js組込み): ファイル操作
-  - uuid: 一意なサーバーID生成
+- Node.js 18 or higher
+- TypeScript (required)
+- Dependencies:
+  - @modelcontextprotocol/sdk: MCP client/server implementation
+  - child_process (Node.js built-in): Child process management
+  - fs/promises (Node.js built-in): File operations
+  - uuid: Unique server ID generation
 
-## セキュリティ考慮事項
+## Security Considerations
 
-- **コード実行の制限:** 任意のコードを実行するため、サンドボックス化を検討する
-- **リソース制限:** メモリ、CPU使用量、ファイル数などに上限を設ける
-- **プロセス監視:** ゾンビプロセスや暴走プロセスの監視と強制終了
-- **パス検証:** ファイルパスに対する適切な検証を行い、ディレクトリトラバーサル攻撃を防止
+- **Code Execution Restrictions:** Consider sandboxing as the service executes arbitrary code
+- **Resource Limitations:** Set limits on memory, CPU usage, number of files, etc.
+- **Process Monitoring:** Monitor and forcibly terminate zombie or runaway processes
+- **Path Validation:** Properly validate file paths to prevent directory traversal attacks
 
-## ライセンス
+## License
 
 MIT
