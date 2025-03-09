@@ -25,6 +25,7 @@ interface CreateServerArgs {
 interface CreateServerFromTemplateArgs {
   language: "typescript" | "python";
   code?: string;
+  dependencies?: Record<string, string>; // 例: { "axios": "^1.0.0" }
 }
 
 interface ExecuteToolArgs {
@@ -117,7 +118,11 @@ class ServerManager {
   }
 
   // Create a new server from code
-  async createServer(code: string, language: string): Promise<string> {
+  async createServer(
+    code: string, 
+    language: string,
+    dependencies?: Record<string, string>
+  ): Promise<string> {
     const serverId = uuidv4();
     const serverDir = path.join(this.serversDir, serverId);
 
@@ -126,15 +131,21 @@ class ServerManager {
       await fs.mkdir(serverDir, { recursive: true });
       await fs.chmod(serverDir, 0o777); // 権限を追加
 
-      try {
-        await fs.symlink(
-          "/app/node_modules",
-          path.join(serverDir, "node_modules")
-        );
-        console.error(`Created symlink to node_modules in ${serverDir}`);
-      } catch (error) {
-        console.error(`Error creating symlink: ${error}`);
-        // エラーがあっても続行する
+      // 依存関係がある場合はインストール（シンボリックリンクは作成しない）
+      if (dependencies && Object.keys(dependencies).length > 0) {
+        await this.installDependencies(serverDir, dependencies, language);
+      } else {
+        // 依存関係がない場合のみシンボリックリンクを作成
+        try {
+          await fs.symlink(
+            "/app/node_modules",
+            path.join(serverDir, "node_modules")
+          );
+          console.error(`Created symlink to node_modules in ${serverDir}`);
+        } catch (error) {
+          console.error(`Error creating symlink: ${error}`);
+          // エラーがあっても続行する
+        }
       }
 
       // Write server code to file
@@ -321,124 +332,284 @@ class ServerManager {
   }
 
   // Create a server from template
-  async createServerFromTemplate(
-    language: string
-  ): Promise<{ serverId: string; message: string }> {
-    // Template code for different languages
-    let templateCode: string;
+//   async createServerFromTemplate(
+//     language: string
+//   ): Promise<{ serverId: string; message: string }> {
+//     // Template code for different languages
+//     let templateCode: string;
 
-    switch (language) {
-      case "typescript":
-        templateCode = `
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { 
-  CallToolRequestSchema, 
-  ListToolsRequestSchema 
-} from "@modelcontextprotocol/sdk/types.js";
+//     switch (language) {
+//       case "typescript":
+//         templateCode = `
+// import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+// import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+// import { 
+//   CallToolRequestSchema, 
+//   ListToolsRequestSchema 
+// } from "@modelcontextprotocol/sdk/types.js";
 
-const server = new Server({
-  name: "dynamic-test-server",
-  version: "1.0.0"
-}, {
-  capabilities: {
-    tools: {}
-  }
-});
+// const server = new Server({
+//   name: "dynamic-test-server",
+//   version: "1.0.0"
+// }, {
+//   capabilities: {
+//     tools: {}
+//   }
+// });
 
-// Server implementation - 正しいスキーマ型を使用
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return {
-    tools: [{
-      name: "echo",
-      description: "Echo back a message",
-      inputSchema: {
-        type: "object",
-        properties: {
-          message: { type: "string" }
-        },
-        required: ["message"]
-      }
-    }]
-  };
-});
+// // Server implementation - 正しいスキーマ型を使用
+// server.setRequestHandler(ListToolsRequestSchema, async () => {
+//   return {
+//     tools: [{
+//       name: "echo",
+//       description: "Echo back a message",
+//       inputSchema: {
+//         type: "object",
+//         properties: {
+//           message: { type: "string" }
+//         },
+//         required: ["message"]
+//       }
+//     }]
+//   };
+// });
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  if (request.params.name === "echo") {
-    return {
-      content: [
-        {
-          type: "text",
-          text: \`Echo: \${request.params.arguments.message}\`
-        }
-      ]
-    };
-  }
-  throw new Error("Tool not found");
-});
+// server.setRequestHandler(CallToolRequestSchema, async (request) => {
+//   if (request.params.name === "echo") {
+//     return {
+//       content: [
+//         {
+//           type: "text",
+//           text: \`Echo: \${request.params.arguments.message}\`
+//         }
+//       ]
+//     };
+//   }
+//   throw new Error("Tool not found");
+// });
 
-// Server startup
-const transport = new StdioServerTransport();
-server.connect(transport);
-`;
-        break;
+// // Server startup
+// const transport = new StdioServerTransport();
+// server.connect(transport);
+// `;
+//         break;
 
-      case "python":
-        templateCode = `
-import asyncio
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
+//       case "python":
+//         templateCode = `
+// import asyncio
+// from mcp.server import Server
+// from mcp.server.stdio import stdio_server
 
-app = Server("dynamic-test-server")
+// app = Server("dynamic-test-server")
 
-@app.list_tools()
-async def list_tools():
-    return [
-        {
-            "name": "echo",
-            "description": "Echo back a message",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "message": {"type": "string"}
-                },
-                "required": ["message"]
-            }
-        }
-    ]
+// @app.list_tools()
+// async def list_tools():
+//     return [
+//         {
+//             "name": "echo",
+//             "description": "Echo back a message",
+//             "inputSchema": {
+//                 "type": "object",
+//                 "properties": {
+//                     "message": {"type": "string"}
+//                 },
+//                 "required": ["message"]
+//             }
+//         }
+//     ]
 
-@app.call_tool()
-async def call_tool(name, arguments):
-    if name == "echo":
-        return [{"type": "text", "text": f"Echo: {arguments.get('message')}"}]
-    raise ValueError(f"Tool not found: {name}")
+// @app.call_tool()
+// async def call_tool(name, arguments):
+//     if name == "echo":
+//         return [{"type": "text", "text": f"Echo: {arguments.get('message')}"}]
+//     raise ValueError(f"Tool not found: {name}")
 
-async def main():
-    async with stdio_server() as streams:
-        await app.run(
-            streams[0],
-            streams[1],
-            app.create_initialization_options()
-        )
+// async def main():
+//     async with stdio_server() as streams:
+//         await app.run(
+//             streams[0],
+//             streams[1],
+//             app.create_initialization_options()
+//         )
 
-if __name__ == "__main__":
-    asyncio.run(main())
-`;
-        break;
+// if __name__ == "__main__":
+//     asyncio.run(main())
+// `;
+//         break;
 
-      default:
-        throw new Error(`Unsupported template language: ${language}`);
-    }
+//       default:
+//         throw new Error(`Unsupported template language: ${language}`);
+//     }
 
-    const serverId = await this.createServer(templateCode, language);
-    return {
-      serverId,
-      message: `Created server from ${language} template`,
-    };
-  }
+//     const serverId = await this.createServer(templateCode, language);
+//     return {
+//       serverId,
+//       message: `Created server from ${language} template`,
+//     };
+//   }
 
   // 以下は他のメソッドも同様に修正することになりますが、
   // 主要な変更点は上記の通りです
+
+  // 依存関係をインストールするメソッド
+  async installDependencies(
+    serverDir: string,
+    dependencies: Record<string, string>,
+    language: string
+  ): Promise<void> {
+    console.error(`Installing dependencies for ${language} in ${serverDir}`);
+    
+    switch (language) {
+      case "typescript":
+      case "javascript":
+        await this.installNodeDependencies(serverDir, dependencies);
+        break;
+      case "python":
+        await this.installPythonDependencies(serverDir, dependencies);
+        break;
+      default:
+        throw new Error(`Unsupported language for dependencies: ${language}`);
+    }
+  }
+
+  // Node.js (TypeScript/JavaScript) 用の依存関係インストール
+  private async installNodeDependencies(
+    serverDir: string,
+    dependencies: Record<string, string>
+  ): Promise<void> {
+    try {
+      // 既存のpackage.jsonを読み込む（存在する場合）
+      let packageJson: any = {
+        name: "mcp-dynamic-server",
+        version: "1.0.0",
+        type: "module",
+        dependencies: {}
+      };
+      
+      // アプリケーションのpackage.jsonを読み込む
+      try {
+        const appPackageJsonPath = path.join("/app", "package.json");
+        const appPackageJsonContent = await fs.readFile(appPackageJsonPath, 'utf-8');
+        const appPackageJson = JSON.parse(appPackageJsonContent);
+        
+        // 必要な依存関係をマージ
+        if (appPackageJson.dependencies) {
+          // 特に@modelcontextprotocol関連の依存関係をコピー
+          Object.entries(appPackageJson.dependencies).forEach(([pkg, ver]) => {
+            if (pkg.startsWith('@modelcontextprotocol') || pkg === 'mcp') {
+              packageJson.dependencies[pkg] = ver;
+            }
+          });
+        }
+        
+        console.error(`Merged dependencies from app package.json`);
+      } catch (error) {
+        console.error(`Error reading app package.json:`, error);
+        // エラーがあっても続行
+      }
+      
+      // ユーザー指定の依存関係をマージ
+      Object.entries(dependencies).forEach(([pkg, ver]) => {
+        packageJson.dependencies[pkg] = ver;
+      });
+      
+      // package.jsonを書き込む
+      await fs.writeFile(
+        path.join(serverDir, "package.json"),
+        JSON.stringify(packageJson, null, 2)
+      );
+      
+      // npm install の実行
+      const npmCommand = await getCommandPath("npm");
+      await new Promise<void>((resolve, reject) => {
+        const installProcess = spawn(
+          npmCommand,
+          ["install"],
+          {
+            stdio: ["ignore", "pipe", "pipe"],
+            shell: true,
+            env: { ...process.env },
+            cwd: serverDir
+          }
+        );
+        
+        installProcess.stdout.on("data", (data) => {
+          console.error(`NPM stdout: ${data}`);
+        });
+        
+        installProcess.stderr.on("data", (data) => {
+          console.error(`NPM stderr: ${data}`);
+        });
+        
+        installProcess.on("exit", (code) => {
+          if (code === 0) {
+            console.error(`NPM install successful`);
+            resolve();
+          } else {
+            console.error(`NPM install failed with code ${code}`);
+            reject(new Error(`NPM install failed with code ${code}`));
+          }
+        });
+      });
+    } catch (error) {
+      console.error(`Error installing Node.js dependencies:`, error);
+      throw error;
+    }
+  }
+
+  // Python 用の依存関係インストール
+  private async installPythonDependencies(
+    serverDir: string,
+    dependencies: Record<string, string>
+  ): Promise<void> {
+    try {
+      // requirements.txt の作成
+      const requirementsContent = Object.entries(dependencies)
+        .map(([pkg, ver]) => `${pkg}${ver}`)
+        .join("\n");
+      
+      await fs.writeFile(
+        path.join(serverDir, "requirements.txt"),
+        requirementsContent
+      );
+      
+      // pip install の実行
+      const pipCommand = await getCommandPath("pip");
+      await new Promise<void>((resolve, reject) => {
+        const installProcess = spawn(
+          pipCommand,
+          ["install", "-r", "requirements.txt"],
+          {
+            stdio: ["ignore", "pipe", "pipe"],
+            shell: true,
+            env: { ...process.env },
+            cwd: serverDir
+          }
+        );
+        
+        installProcess.stdout.on("data", (data) => {
+          console.error(`PIP stdout: ${data}`);
+        });
+        
+        installProcess.stderr.on("data", (data) => {
+          console.error(`PIP stderr: ${data}`);
+        });
+        
+        installProcess.on("exit", (code) => {
+          if (code === 0) {
+            console.error(`PIP install successful`);
+            resolve();
+          } else {
+            console.error(`PIP install failed with code ${code}`);
+            reject(new Error(`PIP install failed with code ${code}`));
+          }
+        });
+      });
+    } catch (error) {
+      console.error(`Error installing Python dependencies:`, error);
+      throw error;
+    }
+  }
 
   // Execute a tool on a server
   async executeToolOnServer(
@@ -726,6 +897,10 @@ const createServerFromTemplateTool: Tool = {
         description:
           "カスタマイズしたサーバーコード。テンプレートを元に変更したコードを入力してください。省略した場合はデフォルトのテンプレートが使用されます。",
       },
+      dependencies: {
+        type: "object",
+        description: "使用するライブラリとそのバージョン（例: { \"axios\": \"^1.0.0\" }）",
+      },
     },
     required: ["language"],
   },
@@ -909,7 +1084,8 @@ async function main() {
 
               const result = await serverManager.createServer(
                 serverCode,
-                args.language
+                args.language,
+                args.dependencies
               );
 
               return {
