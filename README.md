@@ -56,11 +56,11 @@ Claude Desktop 構成ファイル (`claude_desktop_config.json`) に以下を追
 
 | ツール名 | 説明 | 入力パラメータ | 出力 |
 |---------|-----|--------------|-----|
-| create-server | コードからMCPサーバーを作成 | code: string<br>language: string | { serverId: string } |
+
 | create-server-from-template | テンプレートからMCPサーバーを作成 | language: string | { serverId: string, message: string } |
 | execute-tool | サーバー上のツールを実行 | serverId: string<br>toolName: string<br>args: object | ツールの実行結果 |
 | get-server-tools | サーバーのツール一覧を取得 | serverId: string | { tools: ToolDefinition[] } |
-| update-server | サーバーコードを更新 | serverId: string<br>code: string | { success: boolean, message: string } |
+
 | delete-server | サーバーを削除 | serverId: string | { success: boolean, message: string } |
 | list-servers | 実行中のサーバー一覧を取得 | なし | { servers: string[] } |
 
