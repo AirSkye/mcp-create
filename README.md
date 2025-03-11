@@ -2,6 +2,10 @@
 
 A dynamic MCP server management service that creates, runs, and manages Model Context Protocol (MCP) servers dynamically. This service itself functions as an MCP server and launches/manages other MCP servers as child processes, enabling a flexible MCP ecosystem.
 
+<a href="https://glama.ai/mcp/servers/lnl6xjkkeq">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/lnl6xjkkeq/badge" alt="Create Server MCP server" />
+</a>
+
 ## Key Features
 
 - Dynamic creation and execution of MCP server code
